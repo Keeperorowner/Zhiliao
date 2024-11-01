@@ -51,9 +51,8 @@ android {
             }
         }
         release {
-            // minifyEnabled true
-            // shrinkResources true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+             minifyEnabled true
+             shrinkResources true
             externalNativeBuild {
                 cmake {
                     cppFlags "-flto", "-ffunction-sections", "-fdata-sections", "-Wl,--gc-sections", "-fno-unwind-tables", "-fno-asynchronous-unwind-tables", "-Wl,--exclude-libs,ALL"
