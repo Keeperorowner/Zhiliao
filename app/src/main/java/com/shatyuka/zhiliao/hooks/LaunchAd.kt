@@ -16,10 +16,13 @@ class LaunchAd : BaseHook() {
     private var isShowLaunchAd: Method? = null
     private var resolveAdvert: Method? = null
 
-    /**
-     * https://api.zhihu.com/commercial_api/app_float_layer
-     */
-    private var adFeedFloatClass: Class<*>? = null
+    private var adClassList: MutableList<Class<*>> = ArrayList()
+    private var adClassNameList = listOf<String>(
+        // https://api.zhihu.com/commercial_api/app_float_layer
+        "com.zhihu.android.adbase.model.AdFeedFloat",
+        // https://api.zhihu.com/fringe/ad
+        "com.zhihu.android.adbase.model.PushAdModel"
+    )
 
     override fun getName(): String {
         return "去启动页广告"
@@ -31,14 +34,15 @@ class LaunchAd : BaseHook() {
         isShowLaunchAd = findIsShowLaunchAdMethod(classLoader)
         resolveAdvert = findResolveAdvertMethod(classLoader)
 
-        try {
-            adFeedFloatClass = classLoader.loadClass("com.zhihu.android.adbase.model.AdFeedFloat")
-        } catch (e: Exception) {
-            logE(e)
+        adClassNameList.forEach {
+            try {
+                adClassList.add(classLoader.loadClass(it))
+            } catch (e: Exception) {
+                logE(e.message)
+            }
         }
     }
 
-    @Throws(Throwable::class)
     override fun hook() {
         if (!Helper.prefs.getBoolean("switch_mainswitch", false)
             || !Helper.prefs.getBoolean("switch_launchad", true)
@@ -59,18 +63,19 @@ class LaunchAd : BaseHook() {
             hookMethod(resolveAdvert, DO_NOTHING)
         }
 
-        if (adFeedFloatClass != null) {
-            hookMethod(Helper.JacksonHelper.ObjectReader_readValue, object : XC_MethodHook() {
-                override fun afterHookedMethod(param: MethodHookParam) {
-                    if (param.result == null) {
-                        return
-                    }
-                    if (param.result.javaClass == adFeedFloatClass) {
+        hookMethod(Helper.JacksonHelper.ObjectReader_readValue, object : XC_MethodHook() {
+            override fun afterHookedMethod(param: MethodHookParam) {
+                if (param.result == null) {
+                    return
+                }
+                adClassList.forEach {
+                    if (param.result.javaClass == it) {
                         param.result = null
+                        return@forEach
                     }
                 }
-            })
-        }
+            }
+        })
     }
 
     private fun findChooseAdUrlMethod(classLoader: ClassLoader): Method? {

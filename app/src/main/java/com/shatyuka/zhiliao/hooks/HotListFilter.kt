@@ -5,8 +5,8 @@ import com.shatyuka.zhiliao.Helper.JacksonHelper
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedBridge.hookAllMethods
+import de.robv.android.xposed.XposedHelpers
 import java.lang.reflect.Field
-import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.util.Arrays
 import java.util.Optional
@@ -33,7 +33,6 @@ class HotListFilter : BaseHook() {
     private var templateCardModel: Class<*>? = null
     private lateinit var templateCardModel_dataField: Field
     private lateinit var basePagingFragment: Class<*>
-    private lateinit var headZone: Field
 
     private companion object {
         val QUESTION_URL_PATTERN = Pattern.compile("zhihu\\.com/question/")
@@ -88,21 +87,16 @@ class HotListFilter : BaseHook() {
             templateCardModel_dataField = templateCardModel!!.getField("data")
             templateCardModel_dataField.isAccessible = true
         } catch (e: Exception) {
-           logE(e)
+            logE(e)
         }
-
-        headZone = rankFeedList.getDeclaredField("head_zone")
-        headZone.isAccessible = true
     }
 
-    @Throws(Throwable::class)
     override fun hook() {
         if (!Helper.prefs.getBoolean("switch_mainswitch", false)) {
             return
         }
 
         hookAllMethods(feedsHotListFragment2, "postRefreshSucceed", object : XC_MethodHook() {
-            @Throws(Throwable::class)
             override fun beforeHookedMethod(param: MethodHookParam) {
                 preProcessRankFeed(param.args[0])
                 filterRankFeed(param.args[0])
@@ -110,7 +104,6 @@ class HotListFilter : BaseHook() {
         })
 
         hookAllMethods(basePagingFragment, "postLoadMoreSucceed", object : XC_MethodHook() {
-            @Throws(Throwable::class)
             override fun beforeHookedMethod(param: MethodHookParam) {
                 if (param.thisObject.javaClass == feedsHotListFragment2) {
                     filterRankFeed(param.args[0])
@@ -120,7 +113,6 @@ class HotListFilter : BaseHook() {
 
         for (processRankList in retAndArgTypeQqResponseMethodList) {
             XposedBridge.hookMethod(processRankList, object : XC_MethodHook() {
-                @Throws(Throwable::class)
                 override fun beforeHookedMethod(param: MethodHookParam) {
                     val rankFeedList = response_bodyField[param.args[0]] ?: return
                     val rankFeedListData = ZHObjectListDataField[rankFeedList] as List<*>
@@ -135,7 +127,6 @@ class HotListFilter : BaseHook() {
         }
     }
 
-    @Throws(IllegalAccessException::class)
     private fun filterRankFeed(rankFeedListInstance: Any?) {
         if (rankFeedListInstance == null) {
             return
@@ -160,7 +151,6 @@ class HotListFilter : BaseHook() {
         return rankFeedInstance == null || rankFeedInstance.javaClass == rankFeedModule
     }
 
-    @Throws(IllegalAccessException::class, InvocationTargetException::class)
     private fun shouldFilterEveryoneSeeRankFeed(rankFeedInstance: Any?): Boolean {
         if (rankFeedInstance == null || rankFeedInstance.javaClass != templateCardModel) {
             return false
@@ -220,6 +210,7 @@ class HotListFilter : BaseHook() {
     }
 
     private fun preProcessRankFeed(rankFeed: Any) {
-        headZone.set(rankFeed, null)
+        XposedHelpers.setObjectField(rankFeed, "head_zone", null)
+        XposedHelpers.setObjectField(rankFeed, "headZones", emptyList<Any>())
     }
 }
